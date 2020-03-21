@@ -1,4 +1,9 @@
-requireNamespace("tidyverse")
+library(stringr)
+library(dplyr)
+library(purrr)
+library(flextable)
+library(officer)
+library(knitr)
 
 #' Read Kindle clippings into data frame
 #' 
@@ -49,20 +54,48 @@ read_kindle_clippings <- function(fname) {
 }
 
 
-#' Prints the clippings from title in the Viewer pane
+#' Prints the clippings from a book in the Viewer pane
 #'
-#' @param book character. Name of book to display
-#' @param clippings data frame of Kindle clippings
+#' @param clippings A data frame of Kindle clippings. See [read_kindle_clippings()].
+#' @param book Name of book to display.
+#' @param preview Where to display result. 
+#' One of: 
+#' * "html": RStudio Viewer pane
+#' * "docx": MS Word
+#' * "pptx": MS Powerpoint
+#' * "raw": Console
 #'
-#' @return display data frame in Viewer pane
+#' @return display data frame in Viewer pane or a MS Word document
 #' @export
 #'
 #' @examples
 #' print_clippings(clippings, "Thinking, Fast and Slow")
-print_clippings <- function(clippings, book) {
+print_clippings <- function(clippings, book, preview = "html") {
   stopifnot(c("title", "body", "date") %in% names(clippings))
-  df = clippings %>% 
-    filter(str_detect(title, book)) %>% 
-    select(body, date)
-  flextable::flextable(df, cwidth = c(8, 1))
+  book_clippings = clippings %>% 
+    filter(str_detect(str_to_lower(title), str_to_lower(book))) %>% 
+    arrange(date) %>% 
+    mutate(body = str_wrap(body, 80), 
+           body = paste0(body, "\n"))
+
+  if (preview == "raw") {
+    book_clippings %>% 
+      select(date, location, body) %>% 
+      write.table(quote=F, row.names=F, col.names=F, sep="\n")
+  } else {
+    book_title = str_squish(book_clippings$title[1])
+    book_dates = paste0("Read from ", paste0(as.Date(range(book_clippings$date, na.rm = T)), collapse = " to "))
+    table_header = paste0(book_title, "\n", book_dates)
+    
+    book_clippings %>% 
+    select(location, body) %>%  
+    flextable::flextable() %>% 
+    flextable::set_header_labels(location = "", body = table_header) %>% 
+    flextable::width(j=1, width=0.5) %>% 
+    flextable::width(j=2, width=7) %>% 
+    flextable::align_text_col("left") %>% 
+    flextable::fontsize(j=1, size = 6) %>% 
+    flextable::border(j=2, border.top = officer::fp_border()) %>% 
+    print(preview = preview)
+  }
 }
