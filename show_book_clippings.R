@@ -11,7 +11,16 @@ if (is.na(clippings_dir))
   clippings_dir = "e:\\Users\\savvi\\Documents\\backup\\personal-data\\My Clippings.txt"
 
 clippings_dir = normalizePath(clippings_dir)
-clippings = suppressWarnings(read_kindle_clippings(clippings_dir))
+clippings_df_cached_dir = "clippings_df_cached.csv"
+  
+if (!file.exists(clippings_df_cached_dir) | 
+    file.info(clippings_dir)$mtime > file.info(clippings_df_cached_dir)$mtime) {
+  cat("Updating clippings_df_cached.csv...\n")
+  clippings = suppressWarnings(read_kindle_clippings(clippings_dir))
+  write.csv(clippings, clippings_df_cached_dir)
+} else {
+  clippings = read.csv(clippings_df_cached_dir)
+}
 
 book = args[1]
 # if (is.na(book)) 
