@@ -9,7 +9,7 @@ suppressWarnings(suppressPackageStartupMessages(source("read_clippings.R")))
 clippings_dir = args[2]
 if (is.na(clippings_dir))
   clippings_dir = "e:\\Users\\savvi\\Documents\\backup\\personal-data\\My Clippings.txt"
-
+# Note: MLaPP had some weird clippings from images that made readLines stop reading, so I deleted them but they may come out again.
 clippings_dir = normalizePath(clippings_dir)
 clippings_df_cached_dir = "clippings_df_cached.csv"
   
@@ -19,7 +19,7 @@ if (!file.exists(clippings_df_cached_dir) |
   clippings = suppressWarnings(read_kindle_clippings(clippings_dir))
   write.csv(clippings, clippings_df_cached_dir)
 } else {
-  clippings = read.csv(clippings_df_cached_dir)
+  clippings = read.csv(clippings_df_cached_dir, stringsAsFactors = FALSE)
 }
 
 book = args[1]
@@ -29,8 +29,11 @@ book = args[1]
 if (is.na(book)) {
   # Print book titles
   clippings %>% 
-    count(title )%>%
-    select(Notes = n, Book = title) %>% 
+    group_by(title) %>% 
+    summarize(Notes = n(), 
+              # Latest = format(max(date), "%Y-%m-%d")) %>% 
+              Latest = max(date)) %>% 
+    select(Notes, Latest, Book = title) %>% 
     write.table(quote=F, row.names=F, sep="\t") 
 } else {
   print_clippings(clippings, book, preview="raw")
