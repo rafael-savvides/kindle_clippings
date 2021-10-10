@@ -62,15 +62,21 @@ read_kindle_clippings <- function(fname) {
 #'
 #' @examples
 #' print_clippings(clippings, "Thinking, Fast and Slow")
-print_clippings <- function(clippings, book) {
+print_clippings <- function(clippings, book, file="", wrap=TRUE) {
   stopifnot(c("title", "body", "date") %in% names(clippings))
   book_clippings = clippings %>% 
     filter(str_detect(str_to_lower(title), str_to_lower(book))) %>% 
-    arrange(date) %>% 
-    mutate(body = str_wrap(body, 80), 
-           body = paste0(body, "\n"))
-
+    arrange(date) 
+  
+  if (wrap) {
+    book_clippings = book_clippings %>% 
+      mutate(body = str_wrap(body, 80))
+  }
+    
   book_clippings %>% 
+    mutate(body = paste0(body, "\n")) %>% 
     select(date, location, body) %>% 
-    write.table(quote=F, row.names=F, col.names=F, sep="\n")
+    write.table(quote=F, row.names=F, col.names=F, sep="\n", 
+                file=file, fileEncoding = "UTF-8")
 }
+
