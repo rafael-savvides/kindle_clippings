@@ -36,5 +36,5 @@ if (is.na(book)) {
     select(Notes, Latest, Book = title) %>% 
     write.table(quote=F, row.names=F, sep="\t") 
 } else {
-  print_clippings(clippings, book, preview="raw")
+  print_clippings(clippings, book)
 }
