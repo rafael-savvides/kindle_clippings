@@ -21,33 +21,40 @@ library(knitr)
 read_kindle_clippings <- function(fname) {
   clippings_raw = readLines(fname, encoding = "UTF-8")
   
-  clippings = data.frame(raw = clippings_raw, stringsAsFactors = F) %>% 
-    mutate(is_sep = str_detect(raw, "=========="), 
-           is_title_author = lag(is_sep, default=T), 
-           is_location_date = lag(is_title_author, default=F), 
-           is_body = !is_sep & !is_title_author & !is_location_date, 
-           id = cumsum(is_title_author)) %>% 
-    mutate(title_author = map2(raw, is_title_author, function(x, y) x[y]), 
-           location_date = map2(raw, is_location_date, function(x, y) x[y]), 
-           body = map2(raw, is_body, function(x, y) x[y])) %>% 
-    select(id, title_author, location_date, body) %>% 
-    group_by(id) %>% 
-    summarise(title_author = paste0(unlist(title_author), collapse=""), 
-              location_date = paste0(unlist(location_date), collapse=""), 
-              body = paste0(unlist(body), collapse="")) %>% 
-    filter(!str_detect(location_date, "- Your Bookmark on ")) %>%
-    mutate(location_date = str_remove(location_date, "- Your Highlight on "),
-           location = str_remove(location_date, " \\|.*"),
-           date = str_extract(location_date, "\\| Added on.*"),
-           date = str_remove(date, "\\| Added on "),
-           date = lubridate::parse_date_time(date, "A, b! d!, Y! I!:M!:S! p!"),
-           author = str_extract(title_author, "\\(\\D*\\)"),
-           author = str_remove_all(author, "\\(|\\)"),
-           title = str_remove(title_author, " \\(.*")
-    ) %>%
-    select(title, author, body, location, date) %>% 
-    filter(!duplicated(body)) %>% 
-    filter(!lead(str_detect(body, fixed(lag(body))))) # Almost duplicates from when a passage is re-highlighted.
+  clippings <- data.frame(raw = clippings_raw, stringsAsFactors = FALSE) |>
+    mutate(
+      is_sep = str_detect(raw, "=========="),
+      is_title_author = lag(is_sep, default = TRUE),
+      is_location_date = lag(is_title_author, default = FALSE),
+      is_body = !is_sep & !is_title_author & !is_location_date,
+      id = cumsum(is_title_author)
+    ) |>
+    mutate(
+      title_author = map2(raw, is_title_author, function(x, y) x[y]),
+      location_date = map2(raw, is_location_date, function(x, y) x[y]),
+      body = map2(raw, is_body, function(x, y) x[y])
+    ) |>
+    select(id, title_author, location_date, body) |>
+    group_by(id) |>
+    summarise(
+      title_author = paste0(unlist(title_author), collapse = ""),
+      location_date = paste0(unlist(location_date), collapse = ""),
+      body = paste0(unlist(body), collapse = "")
+    ) |>
+    filter(!str_detect(location_date, "- Your Bookmark on ")) |>
+    mutate(
+      location_date = str_remove(location_date, "- Your Highlight on "),
+      location = str_remove(location_date, " \\|.*"),
+      date = str_extract(location_date, "\\| Added on.*"),
+      date = str_remove(date, "\\| Added on "),
+      date = lubridate::parse_date_time(date, "A, b! d!, Y! I!:M!:S! p!"),
+      author = str_extract(title_author, "\\(\\D*\\)"),
+      author = str_remove_all(author, "\\(|\\)"),
+      title = str_remove(title_author, " \\(.*")
+    ) |>
+    select(title, author, body, location, date) |>
+    filter(!duplicated(body) & body != "") |>
+    filter(!lead(str_detect(body, fixed(lag(body)))))# Almost duplicates from when a passage is re-highlighted.
   clippings
 }
 
@@ -64,19 +71,19 @@ read_kindle_clippings <- function(fname) {
 #' print_clippings(clippings, "Thinking, Fast and Slow")
 print_clippings <- function(clippings, book, file="", wrap=TRUE) {
   stopifnot(c("title", "body", "date") %in% names(clippings))
-  book_clippings = clippings %>% 
-    filter(str_detect(str_to_lower(title), str_to_lower(book))) %>% 
+  book_clippings = clippings |> 
+    filter(str_detect(str_to_lower(title), str_to_lower(book))) |> 
     arrange(date) 
   
   if (wrap) {
-    book_clippings = book_clippings %>% 
+    book_clippings = book_clippings |> 
       mutate(body = str_wrap(body, 80))
   }
     
-  book_clippings %>% 
-    mutate(body = paste0(body, "\n")) %>% 
-    select(date, location, body) %>% 
-    write.table(quote=F, row.names=F, col.names=F, sep="\n", 
+  book_clippings |> 
+    mutate(body = paste0(body, "\n")) |> 
+    select(date, location, body) |> 
+    write.table(quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\n", 
                 file=file, fileEncoding = "UTF-8")
 }
 

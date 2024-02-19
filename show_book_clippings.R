@@ -1,41 +1,40 @@
 # Prints highlights from books in Kindle (from "My Clippings.txt")
-# Usage: Rscript show_book_clippings.R bookname file_out path_to_my_clippings
+# Usage: Rscript show_book_clippings.R bookname file_out path_to_clippings
 # - If bookname is empty, it prints titles of all books and number of highlights.
-# - If path_to_my_clippings is empty, it defaults to a path (see FILE_CLIPPINGS below).
+# - If path_to_clippings is empty, it defaults to a path (see path_to_clippings below).
 
-args = commandArgs(trailingOnly = T)
+args = commandArgs(trailingOnly = TRUE)
 book = args[1]
-FILE_OUT = args[2]
-FILE_CLIPPINGS = args[3]
+path_to_output = args[2]
+path_to_clippings = args[3]
 
-suppressWarnings(suppressPackageStartupMessages(source("read_clippings.R")))
-if (is.na(FILE_CLIPPINGS))
-  FILE_CLIPPINGS = "e:\\Users\\savvi\\Documents\\backup\\personal-data\\My Clippings.txt"
-# Note: MLaPP had some weird clippings from images that made readLines stop reading, so I deleted them but they may come out again.
-FILE_CLIPPINGS = normalizePath(FILE_CLIPPINGS)
-clippings_df_cached_dir = "clippings_df_cached.csv"
+source("read_clippings.R") |>
+  suppressPackageStartupMessages() |>
+  suppressWarnings()
+path_to_clippings = if (is.na(path_to_clippings)) readLines("path_to_clippings.txt") else path_to_clippings
+path_to_clippings = normalizePath(path_to_clippings)
   
-if (!file.exists(clippings_df_cached_dir) | 
-    file.info(FILE_CLIPPINGS)$mtime > file.info(clippings_df_cached_dir)$mtime) {
-  cat("Updating clippings_df_cached.csv...\n")
-  clippings = suppressWarnings(read_kindle_clippings(FILE_CLIPPINGS))
-  write.csv(clippings, clippings_df_cached_dir)
+path_to_cached_csv = "clippings_df_cached.csv"
+if (!file.exists(path_to_cached_csv) | 
+  file.info(path_to_clippings)$mtime > file.info(path_to_cached_csv)$mtime) {
+  cat("Updating cached csv.\n")
+  clippings = read_kindle_clippings(path_to_clippings) |> suppressWarnings()
+  write.csv(clippings, path_to_cached_csv)
 } else {
-  clippings = read.csv(clippings_df_cached_dir, stringsAsFactors = FALSE)
+  clippings = read.csv(path_to_cached_csv, stringsAsFactors = FALSE)
 }
 
-if (is.na(book)) {
+if (is.na(book) || book == "") {
   # Print book titles
-  clippings %>% 
-    group_by(title) %>% 
+  clippings |>
+    group_by(title) |>
     summarize(Notes = n(), 
-              # Latest = format(max(date), "%Y-%m-%d")) %>% 
-              Latest = max(date)) %>% 
-    select(Notes, Latest, Book = title) %>% 
-    write.table(quote=F, row.names=F, sep="\t", fileEncoding = "UTF-8") 
+              Latest = max(date)) |>
+    select(Notes, Latest, Book = title) |>
+    write.table(quote = FALSE, row.names = FALSE, sep = "\t", fileEncoding = "UTF-8")
 } else {
-  if (!is.na(FILE_OUT)) {
-    print_clippings(clippings, book, file=FILE_OUT, wrap=FALSE)
+  if (!is.na(path_to_output)) {
+    print_clippings(clippings, book, file = path_to_output, wrap = FALSE)
   } else {
     print_clippings(clippings, book)
   }
