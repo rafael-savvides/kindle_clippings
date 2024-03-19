@@ -45,6 +45,7 @@ read_kindle_clippings <- function(fname) {
     mutate(
       location_date = str_remove(location_date, "- Your Highlight on "),
       location = str_remove(location_date, " \\|.*"),
+      location = gsub("^- Your ", "", location), 
       date = str_extract(location_date, "\\| Added on.*"),
       date = str_remove(date, "\\| Added on "),
       date = lubridate::parse_date_time(date, "A, b! d!, Y! I!:M!:S! p!"),
@@ -59,7 +60,7 @@ read_kindle_clippings <- function(fname) {
 }
 
 
-#' Prints the clippings from a book in the Viewer pane
+#' Prints the clippings from a book
 #'
 #' @param clippings A data frame of Kindle clippings. See [read_kindle_clippings()].
 #' @param book Name of book to display.
@@ -81,8 +82,10 @@ print_clippings <- function(clippings, book, file="", wrap=TRUE) {
   }
     
   book_clippings |> 
-    mutate(body = paste0(body, "\n")) |> 
-    select(date, location, body) |> 
+    mutate(
+      body = paste0(body, "\n"), 
+      date_location = sprintf("%s. %s\n", date, location)) |> 
+    select(date_location, body) |> 
     write.table(quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\n", 
                 file=file, fileEncoding = "UTF-8")
 }
