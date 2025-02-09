@@ -4,12 +4,11 @@ library(purrr)
 library(knitr)
 
 #' Read Kindle clippings into data frame
-#' 
-#' Reads Kindle clippings into tidy data frame. 
+#'
 #' * Removes duplicates and almost duplicates (from re-highlighting a passage).
 #' * Takes author name from content of parentheses in the title or filename. May be incorrect.
 #'
-#' @param fname filename. Location of "My Clippings.txt" file from Kindle
+#' @param fname Path to "My Clippings.txt" file from Kindle. If vector of paths, the clippings files are concatenated.
 #'
 #' @return data frame of title, author, body, location, date
 #' @export
@@ -19,8 +18,12 @@ library(knitr)
 #' clippings = read_kindle_clippings("Clippings.txt")
 #' print_clippings(clippings, "Thinking, Fast and Slow")
 read_kindle_clippings <- function(fname) {
-  clippings_raw = readLines(fname, encoding = "UTF-8")
-  
+  if (length(fname) == 1) {
+    clippings_raw = readLines(fname, encoding = "UTF-8")
+  } else {
+    clippings_raw = do.call(c, map(fname, \(x) readLines(x, encoding = "UTF-8")))
+  }
+
   clippings <- data.frame(raw = clippings_raw, stringsAsFactors = FALSE) |>
     mutate(
       is_sep = str_detect(raw, "=========="),
@@ -45,17 +48,17 @@ read_kindle_clippings <- function(fname) {
     mutate(
       location_date = str_remove(location_date, "- Your Highlight on "),
       location = str_remove(location_date, " \\|.*"),
-      location = gsub("^- Your ", "", location), 
+      location = gsub("^- Your ", "", location),
       date = str_extract(location_date, "\\| Added on.*"),
       date = str_remove(date, "\\| Added on "),
-      date = lubridate::parse_date_time(date, "A, b! d!, Y! I!:M!:S! p!"),
+      date = lubridate::parse_date_time(date, c("A, b! d!, Y! I!:M!:S! p!", "A, d! b! Y! H!:M!:S!")),
       author = str_extract(title_author, "\\(\\D*\\)"),
       author = str_remove_all(author, "\\(|\\)"),
       title = str_remove(title_author, " \\(.*")
     ) |>
     select(title, author, body, location, date) |>
     filter(!duplicated(body) & body != "") |>
-    filter(!lead(str_detect(body, fixed(lag(body)))))# Almost duplicates from when a passage is re-highlighted.
+    filter(!lead(str_detect(body, fixed(lag(body))))) # Almost duplicates from when a passage is re-highlighted.
   clippings
 }
 
@@ -70,23 +73,25 @@ read_kindle_clippings <- function(fname) {
 #'
 #' @examples
 #' print_clippings(clippings, "Thinking, Fast and Slow")
-print_clippings <- function(clippings, book, file="", wrap=TRUE) {
+print_clippings <- function(clippings, book, file = "", wrap = TRUE) {
   stopifnot(c("title", "body", "date") %in% names(clippings))
-  book_clippings = clippings |> 
-    filter(str_detect(str_to_lower(title), str_to_lower(book))) |> 
-    arrange(date) 
-  
+  book_clippings = clippings |>
+    filter(str_detect(str_to_lower(title), str_to_lower(book))) |>
+    arrange(date)
+
   if (wrap) {
-    book_clippings = book_clippings |> 
+    book_clippings = book_clippings |>
       mutate(body = str_wrap(body, 80))
   }
-    
-  book_clippings |> 
-    mutate(
-      body = paste0(body, "\n"), 
-      date_location = sprintf("%s. %s\n", date, location)) |> 
-    select(date_location, body) |> 
-    write.table(quote=FALSE, row.names=FALSE, col.names=FALSE, sep="\n", 
-                file=file, fileEncoding = "UTF-8")
-}
 
+  book_clippings |>
+    mutate(
+      body = paste0(body, "\n"),
+      date_location = sprintf("%s. %s\n", date, location)
+    ) |>
+    select(date_location, body) |>
+    write.table(
+      quote = FALSE, row.names = FALSE, col.names = FALSE, sep = "\n",
+      file = file, fileEncoding = "UTF-8"
+    )
+}
