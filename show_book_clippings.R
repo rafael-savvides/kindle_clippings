@@ -13,10 +13,10 @@ source("read_clippings.R") |>
   suppressWarnings()
 path_to_clippings = if (is.na(path_to_clippings)) readLines("path_to_clippings.txt") else path_to_clippings
 path_to_clippings = normalizePath(path_to_clippings)
-  
+
 path_to_cached_csv = "clippings_df_cached.csv"
-if (!file.exists(path_to_cached_csv) | 
-  file.info(path_to_clippings)$mtime > file.info(path_to_cached_csv)$mtime) {
+if (!file.exists(path_to_cached_csv) |
+  max(file.info(path_to_clippings)$mtime) > file.info(path_to_cached_csv)$mtime) {
   cat("Updating cached csv.\n")
   clippings = read_kindle_clippings(path_to_clippings) |> suppressWarnings()
   write.csv(clippings, path_to_cached_csv)
@@ -28,8 +28,10 @@ if (is.na(book) || book == "") {
   # Print book titles
   clippings |>
     group_by(title) |>
-    summarize(Notes = n(), 
-              Latest = max(date)) |>
+    summarize(
+      Notes = n(),
+      Latest = max(date)
+    ) |>
     select(Notes, Latest, Book = title) |>
     write.table(quote = FALSE, row.names = FALSE, sep = "\t", fileEncoding = "UTF-8")
 } else {
